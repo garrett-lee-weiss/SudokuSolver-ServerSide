@@ -1,15 +1,15 @@
 import pandas as pd
-import itertools
 
 class SolvePuzzle:
 
-    def __init__(self, dict, inception = False):
+    def __init__(self, dict, inception=False):
+
         if inception:
             self.current_puzz_value_dict = dict
         else:
             self.current_puzz_value_dict = self.create_clean_dict(dict)
-        self.final_solved_puzzle = None
 
+        self.final_solved_puzzle = None
         self.current_puzz_data_frame, self.current_puzz_value_list = self.convert_to_data_frame()
         self.row_sets, self.col_sets, self.box_sets = self.create_sets()
         self.count_solutions_by_cell, self.potential_solutions_by_cell = self.find_potential_solutions()
@@ -17,7 +17,7 @@ class SolvePuzzle:
 
     def create_clean_dict(self, data_from_html):
 
-        # converts dictionary of strings '(x,y)':'#' to tuple(x,y): int(#)
+        # converts dictionary of strings '(x, y)':'#' to tuple(x,y): int(#)
 
         clean_dict = {}
         for coordinate in data_from_html:
@@ -38,7 +38,7 @@ class SolvePuzzle:
 
     def create_sets(self):
 
-        # creates sets of values from current row, column, and box in the puzzle. Discards empty strings
+        # creates sets of values from current row, column, and box entries in the puzzle. Discards empty strings
 
         self.current_puzz_data_frame.fillna('', inplace=True)
         row_dict = {f'row_{i}' : set(self.current_puzz_data_frame.loc[i]) for i in range(9)}
@@ -61,18 +61,16 @@ class SolvePuzzle:
         return row_dict, col_dict, box_dict
 
     def assign_new_values(self,row, column, value):
-        # print(f'plugging in {value} into {row, column}')
         self.current_puzz_value_list[row][column] = value
         self.current_puzz_value_dict[(row, column)] = value
         self.current_puzz_data_frame = pd.DataFrame(self.current_puzz_value_list)
-        # print(self.data_frame)
         self.row_sets, self.col_sets, self.box_sets = self.create_sets()
         self.count_solutions_by_cell, self.potential_solutions_by_cell = self.find_potential_solutions()
 
     def find_potential_solutions(self):
 
         # finds differences in every row, column, and box set compared to the complete set to find values missing from the set.
-        # Differences are overlapped to determine potetial values for every cell.
+        # Differences are overlapped to determine potential values for every cell.
 
         complete_set = {i for i in range(1, 10)}
         count_dict, value_dict = {}, {}
@@ -96,32 +94,36 @@ class SolvePuzzle:
         # If the minimum num of solutions in all cells is two, plug the value into a dictionary( copied from current value dict)
         # and instantiate a new SolvePuzzle class with that dictionary.
 
-        solved, i = False, 0
-        while not solved and i < 100:
+        solved= False
+        while not solved:
             small = min(set([self.count_solutions_by_cell[i] for i in self.count_solutions_by_cell]))
             if small == 0:
                 return False
             elif small == 1:
-                for item in self.count_solutions_by_cell:
-                    if self.count_solutions_by_cell[item] == 1:
-                        self.assign_new_values(item[0], item[1], self.potential_solutions_by_cell[item].pop())
+                self.single_solution()
             else:
-                for item in self.count_solutions_by_cell:
-                    if self.count_solutions_by_cell[item] == 2:
-                        value1, value2 = self.potential_solutions_by_cell[item].pop(), self.potential_solutions_by_cell[item].pop()
-                        for i in (value1, value2):
-                            puzzle_copy = self.current_puzz_value_dict.copy()
-                            puzzle_copy[item] = i
-                            trial = SolvePuzzle(puzzle_copy, inception=True)
-                            if trial.is_puzzle_solved:
-                                self.final_solved_puzzle = trial.final_solved_puzzle
-                                return True
-                        return trial.is_puzzle_solved
-            i += 1
+                return self.try_inception()
             solved = self.is_puzzle_solved()
-        if solved:
-            self.final_solved_puzzle = self.current_puzz_value_list
+        self.final_solved_puzzle = self.current_puzz_value_list
         return solved
+
+    def single_solution(self):
+        for item in self.count_solutions_by_cell:
+            if self.count_solutions_by_cell[item] == 1:
+                self.assign_new_values(item[0], item[1], self.potential_solutions_by_cell[item].pop())
+
+    def try_inception(self):
+        for item in self.count_solutions_by_cell:
+            if self.count_solutions_by_cell[item] == 2:
+                value1, value2 = self.potential_solutions_by_cell[item].pop(), self.potential_solutions_by_cell[item].pop()
+                for i in (value1, value2):
+                    puzzle_copy_dict = self.current_puzz_value_dict.copy()
+                    puzzle_copy_dict[item] = i
+                    trial = SolvePuzzle(puzzle_copy_dict, inception=True)
+                    if trial.is_puzzle_solved:
+                        self.final_solved_puzzle = trial.final_solved_puzzle
+                        return True
+                return False
 
     def is_puzzle_solved(self):
         for row in range(0,9):
