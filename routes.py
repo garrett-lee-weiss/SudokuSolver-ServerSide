@@ -1,6 +1,6 @@
-from flask import Flask, render_template, url_for, redirect, request
+from flask import render_template, request
 from app import app
-from solver import solve_puzzle
+from solver import SolvePuzzle
 
 empty = [[''] * 9 for i in range(9)]
 
@@ -9,12 +9,7 @@ def home():
     if request.method == 'GET':
         return render_template('frontend.html', matrix = empty)
     if request.method == 'POST':
-        form = dict(request.form)
-        results = solve_puzzle(form)
-        list_copy = results.winning_list
-        if not results.solved:
-            for row in range(0,9):
-                for column in range(0,9):
-                    if list_copy[row][column] is None:
-                        list_copy[row][column] = ''
-        return render_template('frontend.html', solved = results.solved, matrix = list_copy)
+        puzzle_input = dict(request.form)
+        solve_me = SolvePuzzle(puzzle_input)
+        solution = solve_me.final_solved_puzzle
+        return render_template('frontend.html', solved = solve_me.is_puzzle_solved, matrix = solution)

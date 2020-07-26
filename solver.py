@@ -1,50 +1,57 @@
 import pandas as pd
 import itertools
 
-class solve_puzzle:
+class SolvePuzzle:
 
     def __init__(self, dict, inception = False):
         if inception:
-            self.form_dict = dict
+            self.current_puzz_value_dict = dict
         else:
-            self.form_dict = self.create_clean_dict(dict)
-        self.winning_list = None
-        self.full_set = {i for i in range(1, 10)}
-        self.data_frame, self.form_list = self.convert_to_data_frame()
-        self.row_sets, self.col_sets, self.box_sets = self.create_sets()
-        self.count_dict, self.value_dict = self.create_value_list()
-        self.solved = self.solve()
+            self.current_puzz_value_dict = self.create_clean_dict(dict)
+        self.final_solved_puzzle = None
 
-    def create_clean_dict(self, form):
-        form_dict = {}
-        for coordinate in form:
+        self.current_puzz_data_frame, self.current_puzz_value_list = self.convert_to_data_frame()
+        self.row_sets, self.col_sets, self.box_sets = self.create_sets()
+        self.count_solutions_by_cell, self.potential_solutions_by_cell = self.find_potential_solutions()
+        self.is_puzzle_solved = self.solve()
+
+    def create_clean_dict(self, data_from_html):
+
+        # converts dictionary of strings '(x,y)':'#' to tuple(x,y): int(#)
+
+        clean_dict = {}
+        for coordinate in data_from_html:
             new_coordinate, new_value = tuple(int(coordinate[i]) for i in (1,4)), None
-            if form[coordinate].isdigit():
-                new_value = int(form[coordinate])
-            form_dict[new_coordinate] = new_value
-        return form_dict
+            if data_from_html[coordinate].isdigit():
+                new_value = int(data_from_html[coordinate])
+            clean_dict[new_coordinate] = new_value
+        return clean_dict
 
     def convert_to_data_frame(self):
+
+        # Creates data frame from current puzzle values. Data frame is used in creating sets.
+
         list = [[None] * 9 for i in range(9)]
-        for key in self.form_dict:
-            list[key[0]][key[1]] = self.form_dict[key]
+        for key in self.current_puzz_value_dict:
+            list[key[0]][key[1]] = self.current_puzz_value_dict[key]
         return pd.DataFrame(list), list
 
     def create_sets(self):
-        self.data_frame.fillna('', inplace=True)
-        row_dict = {f'row_{i}' : set(self.data_frame.loc[i]) for i in range(9)}
-        col_dict = {f'col_{i}': set(self.data_frame[i]) for i in range(9)}
-        box_dict = {}
 
-        box_dict['box_0'] = self.return_set(self.data_frame.loc[0:2, 0:2])
-        box_dict['box_1'] = self.return_set(self.data_frame.loc[0:2, 3:5])
-        box_dict['box_2'] = self.return_set(self.data_frame.loc[0:2, 6:8])
-        box_dict['box_3'] = self.return_set(self.data_frame.loc[3:5, 0:2])
-        box_dict['box_4'] = self.return_set(self.data_frame.loc[3:5, 3:5])
-        box_dict['box_5'] = self.return_set(self.data_frame.loc[3:5, 6:8])
-        box_dict['box_6'] = self.return_set(self.data_frame.loc[6:8, 0:2])
-        box_dict['box_7'] = self.return_set(self.data_frame.loc[6:8, 3:5])
-        box_dict['box_8'] = self.return_set(self.data_frame.loc[6:8, 6:8])
+        # creates sets of values from current row, column, and box in the puzzle. Discards empty strings
+
+        self.current_puzz_data_frame.fillna('', inplace=True)
+        row_dict = {f'row_{i}' : set(self.current_puzz_data_frame.loc[i]) for i in range(9)}
+        col_dict = {f'col_{i}': set(self.current_puzz_data_frame[i]) for i in range(9)}
+        box_dict = {'box_0': self.convert_to_set(self.current_puzz_data_frame.loc[0:2, 0:2]),
+                    'box_1': self.convert_to_set(self.current_puzz_data_frame.loc[0:2, 3:5]),
+                    'box_2': self.convert_to_set(self.current_puzz_data_frame.loc[0:2, 6:8]),
+                    'box_3': self.convert_to_set(self.current_puzz_data_frame.loc[3:5, 0:2]),
+                    'box_4': self.convert_to_set(self.current_puzz_data_frame.loc[3:5, 3:5]),
+                    'box_5': self.convert_to_set(self.current_puzz_data_frame.loc[3:5, 6:8]),
+                    'box_6': self.convert_to_set(self.current_puzz_data_frame.loc[6:8, 0:2]),
+                    'box_7': self.convert_to_set(self.current_puzz_data_frame.loc[6:8, 3:5]),
+                    'box_8': self.convert_to_set(self.current_puzz_data_frame.loc[6:8, 6:8])}
 
         for i in range(9):
             row_dict[f'row_{i}'].discard('')
@@ -54,80 +61,72 @@ class solve_puzzle:
         return row_dict, col_dict, box_dict
 
     def assign_new_values(self,row, column, value):
-        print(f'plugging in {value} into {row, column}')
-        self.form_list[row][column] = value
-        self.form_dict[(row, column)] = value
-        self.data_frame = pd.DataFrame(self.form_list)
+        # print(f'plugging in {value} into {row, column}')
+        self.current_puzz_value_list[row][column] = value
+        self.current_puzz_value_dict[(row, column)] = value
+        self.current_puzz_data_frame = pd.DataFrame(self.current_puzz_value_list)
         # print(self.data_frame)
         self.row_sets, self.col_sets, self.box_sets = self.create_sets()
-        self.count_dict, self.value_dict = self.create_value_list()
+        self.count_solutions_by_cell, self.potential_solutions_by_cell = self.find_potential_solutions()
 
-    def create_value_list(self):
+    def find_potential_solutions(self):
+
+        # finds differences in every row, column, and box set compared to the complete set to find values missing from the set.
+        # Differences are overlapped to determine potetial values for every cell.
+
+        complete_set = {i for i in range(1, 10)}
         count_dict, value_dict = {}, {}
         for row in range(0,9):
             for column in range(0,9):
-                r = self.full_set.difference(self.row_sets[f'row_{row}'])
-                c = self.full_set.difference(self.col_sets[f'col_{column}'])
-                b = self.full_set.difference(self.box_sets[self.get_box_set(row, column)])
-                d = r.intersection(c.intersection(b))
-                if not self.form_list[row][column]:
-                    value_dict[(row, column)] = d
-                    count_dict[(row, column)] = len(d)
+                row_diff = complete_set.difference(self.row_sets[f'row_{row}'])
+                col_diff = complete_set.difference(self.col_sets[f'col_{column}'])
+                box_diff = complete_set.difference(self.box_sets[self.get_box_set(row, column)])
+                overlap = row_diff.intersection(col_diff.intersection(box_diff))
+                if not self.current_puzz_value_list[row][column]:
+                    value_dict[(row, column)] = overlap
+                    count_dict[(row, column)] = len(overlap)
 
         return count_dict, value_dict
 
     def solve(self):
+
+        # loops through all cells & the corresponding counts of potential solutions.
+        # If the minumum num of solutions in all cells is Zero, the puzzle cannot be solved.
+        # If the minimum num of solutions in all cells is 1, plug in those values & re-loop.
+        # If the minimum num of solutions in all cells is two, plug the value into a dictionary( copied from current value dict)
+        # and instantiate a new SolvePuzzle class with that dictionary.
+
         solved, i = False, 0
-        print(f'--Inside {self}--')
-
         while not solved and i < 100:
-            small = min(set([self.count_dict[i] for i in self.count_dict]))
+            small = min(set([self.count_solutions_by_cell[i] for i in self.count_solutions_by_cell]))
             if small == 0:
-                print(f'we are out of options: {small}')
                 return False
-
             elif small == 1:
-                print(f'We have singles {small}')
-                for item in self.count_dict:
-                    if self.count_dict[item] == 1:
-                        self.assign_new_values(item[0], item[1], self.value_dict[item].pop())
+                for item in self.count_solutions_by_cell:
+                    if self.count_solutions_by_cell[item] == 1:
+                        self.assign_new_values(item[0], item[1], self.potential_solutions_by_cell[item].pop())
             else:
-                print(f'We have doubles {small}')
-                for item in self.count_dict:
-                        if self.count_dict[item] == 2:
-                            # print(f'{item} : {self.count_dict[item]} | {self.value_dict[item]}')
-                            value1, value2 = self.value_dict[item].pop(), self.value_dict[item].pop()
-                            for i in (value1, value2):
-                                cop = self.form_dict.copy()
-                                cop[item] = i
-                                print(f'****Begining Trial****{self}')
-                                trial = solve_puzzle(cop, inception=True)
-                                print(f'****ENDING Trial****{self}')
-                                if trial.solved:
-                                    solved = True
-                                    self.winning_list = trial.winning_list
-                                    return True
-                            return trial.solved
-                return solved
+                for item in self.count_solutions_by_cell:
+                    if self.count_solutions_by_cell[item] == 2:
+                        value1, value2 = self.potential_solutions_by_cell[item].pop(), self.potential_solutions_by_cell[item].pop()
+                        for i in (value1, value2):
+                            puzzle_copy = self.current_puzz_value_dict.copy()
+                            puzzle_copy[item] = i
+                            trial = SolvePuzzle(puzzle_copy, inception=True)
+                            if trial.is_puzzle_solved:
+                                self.final_solved_puzzle = trial.final_solved_puzzle
+                                return True
+                        return trial.is_puzzle_solved
             i += 1
-            solved = self.solve_check()
-        print(f'number of loops: {i} | solved? {solved}')
-        if self.solve_check():
-            print(f'----WE HAVE SOLVED THE PUZZLE---{self}')
-            print(self.data_frame)
-            self.winning_list = self.form_list
-            print(self.winning_list)
-            return True
-        else:
-            print('Puzzle has NOT been solved.')
-            return False
+            solved = self.is_puzzle_solved()
+        if solved:
+            self.final_solved_puzzle = self.current_puzz_value_list
+        return solved
 
-
-    def solve_check(self):
+    def is_puzzle_solved(self):
         for row in range(0,9):
             for column in range(0,9):
-                if self.form_list[row][column] is None:
-                    print(f'NOT SOLVED | {row, column} is not filled in.')
+                if self.current_puzz_value_list[row][column] is None:
                     return False
         return True
 
@@ -147,7 +146,7 @@ class solve_puzzle:
         return list[row][column]
 
     @staticmethod
-    def return_set(array):
+    def convert_to_set(array):
         list = []
         for i in array.values:
             list.extend(i)
