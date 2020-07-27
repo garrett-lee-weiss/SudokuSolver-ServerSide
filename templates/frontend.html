@@ -21,21 +21,21 @@
                     {% if (j<3 or j>5) %}
                         {% if (i<3 or i>5) %}
                             <div class="small_container dark" align="center">
-                                <input name="{{ j, i }}" class="input dark" type="text" maxlength="1" value = {{ matrix[j][i] }}>
+                                <input name="{{ j, i }}" class="input dark" type="text" maxlength="1" value = {{ matrix[(j,i)] }}>
                             </div>
                         {% else %}
                              <div class="small_container light" align="center">
-                                 <input name="{{ j, i }}" class="input light" type="text" maxlength="1" value = {{ matrix[j][i] }}>
+                                 <input name="{{ j, i }}" class="input light" type="text" maxlength="1" value = {{ matrix[(j,i)] }}>
                              </div>
                         {% endif %}
                     {% else %}
                         {% if (i<3 or i>5) %}
                             <div class="small_container light" align="center">
-                                <input name="{{ j, i }}" class="input light" type="text" maxlength="1" value = {{ matrix[j][i] }}>
+                                <input name="{{ j, i }}" class="input light" type="text" maxlength="1" value = {{ matrix[(j,i)] }}>
                             </div>
                         {% else %}
                              <div class="small_container dark" align="center">
-                                 <input name="{{ j, i }}" class="input dark" type="text" maxlength="1" value = {{ matrix[j][i] }}>
+                                 <input name="{{ j, i }}" class="input dark" type="text" maxlength="1" value = {{ matrix[(j,i)] }}>
                              </div>
                         {% endif %}
                     {% endif %}
