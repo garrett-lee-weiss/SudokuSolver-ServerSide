@@ -6,6 +6,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
+
 <!-- Buttons -->
     <div class="button_container">
         <button class="button" onclick="sendData()">SUBMIT</button>
@@ -13,8 +14,10 @@
         <button class="button" onclick="fillTest()">Test</button>
     </div>
 
+<!-- Dividing Line -->
+    <div class="divider"></div>
+
 <!-- Puzzle Board -->
-    <div style="width: 50%; border-bottom: solid; margin-top: 10px; margin-left: auto; margin-right: auto;"></div>
     <div class="main_container">
         <form name="main_form" id="main_form" action="" method = "POST">
         {% for j in range(0,9) %}
